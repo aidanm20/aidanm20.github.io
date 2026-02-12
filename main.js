@@ -590,30 +590,30 @@ loader.load(
       }
 
       if (child.name === 'gloText') {
-        child.castShadow = false;
-  child.receiveShadow = false;
+          child.castShadow = false;
+          child.receiveShadow = false;
 
-  const mats = Array.isArray(child.material)
-    ? child.material
-    : [child.material];
+          const mats = Array.isArray(child.material)
+            ? child.material
+            : [child.material];
 
-  mats.forEach((m) => {
-    if (!m) return;
+          mats.forEach((m) => {
+            if (!m) return;
 
-    if (!m.emissive) m.emissive = new THREE.Color();
+            if (!m.emissive) m.emissive = new THREE.Color();
 
-    
-    m.emissive.set('#56fc98');   
-    m.emissiveIntensity = .3;   
+            
+            m.emissive.set('#56fc98');   
+            m.emissiveIntensity = .7;   
 
-    m.toneMapped = false;       
-    m.needsUpdate = true;
-    gloTextMats.push(m);
-  });
+            m.toneMapped = false;       
+            m.needsUpdate = true;
+            gloTextMats.push(m);
+          });
 
- 
-  child.layers.enable(BLOOM_SCENE);
-  child.traverse((d) => d.layers.enable(BLOOM_SCENE));
+          /*
+          child.layers.enable(BLOOM_SCENE);
+          child.traverse((d) => d.layers.enable(BLOOM_SCENE));*/
       }
 
       if (child.name === 'fishingImg' || child.name === 'belongingImg') {
@@ -732,12 +732,12 @@ function animate() {
     
   if ( keys.w ) { 
     //speed += 0.02;
-    speed += .2;
+    speed += .05;
     moveDir = 1;
     keyPressed = 'w'
   }
    if ( keys.s ){
-    speed += -0.02 ;
+    speed += -0.05 ;
     moveDir = -1;
     keyPressed = 's'
   }
