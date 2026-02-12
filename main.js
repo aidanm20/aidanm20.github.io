@@ -6,6 +6,7 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
+import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 
 
 const scene = new THREE.Scene();
@@ -36,6 +37,13 @@ let character = {
   moveDuration: 0.15,
 };
 
+const gloTextMats = [];
+const gloPulse = {
+  base: 0.4,   // minimum intensity
+  amp: 1,    // how much it swings
+  speed: 2,  // pulse speed  
+};
+
 let camera, goal, keys, follow, headFollow, mixer, fsm, action;
 let temp = new THREE.Vector3;
 let stop = 1;
@@ -50,11 +58,12 @@ let speed = 0.0;
 let cameraOffset = new THREE.Vector3(0, 2, -6);
 let targetOffset = new THREE.Vector3(0, 1.5, 0);
 let worldCameraOffset = new THREE.Vector3();
+const forward = new THREE.Vector3();
 
 let angle = 0;
 let cameraSpeed = 0.03;
 let cameraAngle = 0;
-let desiredYaw = 0;
+let desiredYaw = 0; 
 
 let a = new THREE.Vector3;
 let b = new THREE.Vector3;
@@ -122,8 +131,8 @@ const moonLight = new THREE.DirectionalLight(0xb0c6ff, 0.6);
 moonLight.position.set(-6, 8, -4);
 scene.add(moonLight);
 
-const characterLight = new THREE.PointLight(0xbcd4ff, 1.4, 18, 2.2);
-characterLight.position.set(0, 2.2, 0);
+const characterLight = new THREE.PointLight(0xbcd4ff, 2, 40, 2);
+//characterLight.position.set(0, 2.2, 0);
 characterLight.castShadow = false;
 scene.add(characterLight);
 
@@ -144,8 +153,8 @@ function initPostprocessing() {
   bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
     1.5,
-    0.1,
-    0.1
+    0.02,
+    0.08
   );
   bloomComposer.addPass(bloomPass);
   bloomComposer.renderToScreen = false;
@@ -323,21 +332,12 @@ const moon = new THREE.Mesh(
     roughness: 0.9,
   })
 );
-moon.position.set(-140, 70, -200);
+moon.position.set(-140, 100, -200);
 skyGroup.add(moon);
 
-const moonGlow = new THREE.Mesh(
-  new THREE.SphereGeometry(16, 32, 32),
-  new THREE.MeshBasicMaterial({
-    color: 0xa8beff,
-    transparent: true,
-    opacity: 0.35,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  })
-);
-moonGlow.position.copy(moon.position);
-skyGroup.add(moonGlow);
+ 
+ 
+ 
 
 // ------------------- GLTF -------------------
 let collision = null;
@@ -351,6 +351,8 @@ charLoader.load('portCharEx.fbx', (fbx) => {
   const model = fbx;
 character.instance = model;
 character.container.add(model);
+//character.container.add(new THREE.AxesHelper(1));
+
 
   
 
@@ -373,15 +375,23 @@ if (maxAxis > 0) {
 model.updateMatrixWorld(true);
 box = new THREE.Box3().setFromObject(model);
 
-// 4) Center model at origin
+// 4) Center model XZ on origin (so yaw rotates in place)
 const center = new THREE.Vector3();
 box.getCenter(center);
-model.position.sub(center);
+model.position.x -= center.x;
+model.position.z -= center.z;
 
-// 5) Lift so bottom sits at y = 0
+// 5) Put feet on ground (pivot at feet)
 model.updateMatrixWorld(true);
 box = new THREE.Box3().setFromObject(model);
-model.position.y -= (box.min.y - .25); // move bottom to ground
+model.position.y -= box.min.y;      // bottom to y=0
+model.position.y += 0.25;           // your small lift (optional)
+model.position.x -= 1.7
+model.position.z += .3
+
+// Recompute matrices after reposition
+model.updateMatrixWorld(true);
+
 
   //Animations
   mixer = new THREE.AnimationMixer( model );
@@ -447,11 +457,95 @@ class stateMachine {
     }
 }
 
+function cloneTree(baseTree, {
+  positions = [],
+  lightCol = [],               
+  leafCol = [],                  
+  leafMatNames = ["lightPinkTree"],  
+   
+  randomYaw = true,
+  addBloom = true,
+  lightIntensity = 8,
+  lightDistance = 100,
+  lightDecay = 2,
+  bloomIntensity = [],
+
+} = {}) {
+  const clones = [];
+
+  for (let i = 0; i < positions.length; i++) {
+    const p = positions[i];
+    const t = baseTree.clone(true);
+
+    // remove any lights cloned from baseTree
+    const lights = [];
+    t.traverse((o) => { if (o.isLight) lights.push(o); });
+    lights.forEach((l) => l.parent?.remove(l));
+
+    // random rotation
+    if (randomYaw) t.rotation.y = Math.random() * Math.PI * 2;
+
+    // position
+    t.position.copy(p);
+
+    // bloom layers (not inherited)
+     
+    if (addBloom) {
+      t.layers.enable(BLOOM_SCENE);
+      t.traverse((d) => d.layers.enable(BLOOM_SCENE));
+    }
+    
+    // recolor leaves (clone only those materials)
+    const leafColor = leafCol[i];
+    if (leafColor) {
+      t.traverse((child) => {
+        if (!child.isMesh || !child.material) return;
+
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+
+        for (let mi = 0; mi < mats.length; mi++) {
+          const m = mats[mi];
+          if (!m || !leafMatNames.includes(m.name)) continue;
+
+          const nm = m.clone();
+          if (nm.color) nm.color.set(leafColor);
+          
+          if (!nm.emissive) nm.emissive = new THREE.Color(0x000000);
+          nm.emissive.set(leafColor);
+          nm.emissiveIntensity = bloomIntensity[i] ?? (m.emissiveIntensity ?? 0.3);
+          nm.needsUpdate = true;
+
+          if (Array.isArray(child.material)) child.material[mi] = nm;
+          else child.material = nm;
+        }
+      });
+    }
+
+    // add per-clone light
+    const lc = lightCol[i];
+    if (lc) {
+      const light = new THREE.PointLight(lc, lightIntensity, lightDistance, lightDecay);
+      light.position.set(0, -1, 0);
+      t.add(light);
+    }
+
+    scene.add(t);
+    clones.push(t);
+  }
+
+  return clones;
+}
 
 
 const loader = new GLTFLoader();
+const dLoader = new DRACOLoader();
+dLoader.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.6/");
+dLoader.setDecoderConfig({type: 'js'});
+loader.setDRACOLoader(dLoader);
+
+ 
 loader.load(
-  "./portfolio2.glb",
+  "./portfolio2comp2.glb",
   (gltf) => {
     const root = gltf.scene;
     if (!root) {
@@ -479,85 +573,97 @@ loader.load(
           if (m?.name === "lightPinkTree") {
             // Ensure emissive is non-black so intensity has visible effect.
             if (!m.emissive) m.emissive = new THREE.Color(0x000000);
-            if (m.emissive.getHex() === 0x000000) m.emissive.setHex('#E77B77FF');
-            m.emissiveIntensity = 0.3;
-            m.needsUpdate = true;
-          }
-
-          if (m?.name === "blueTree") {
-            // Ensure emissive is non-black so intensity has visible effect.
-            if (!m.emissive) m.emissive = new THREE.Color(0x000000);
-            if (m.emissive.getHex() === 0x000000) m.emissive.setHex('#51D3E7FF');
-            m.emissiveIntensity = 0.3;
-            m.needsUpdate = true;
-          }
-
-          if (m?.name === "yellowTree") {
-            // Ensure emissive is non-black so intensity has visible effect.
-            if (!m.emissive) m.emissive = new THREE.Color(0x000000);
-            if (m.emissive.getHex() === 0x000000) m.emissive.setHex('#E7B553FF');
-            m.emissiveIntensity = 0.4;
-            m.needsUpdate = true;
-          }
-
-          if (m?.name === "greenTree") {
-            // Ensure emissive is non-black so intensity has visible effect.
-            if (!m.emissive) m.emissive = new THREE.Color(0x000000);
-            if (m.emissive.getHex() === 0x000000) m.emissive.setHex('#10E780FF');
-            m.emissiveIntensity = .75;
+            if (m.emissive.getHex() === 0x000000) m.emissive.setHex('#E77B77');
+            m.emissiveIntensity = 0.33;
             m.needsUpdate = true;
           }
         });
       }
       if (child.name.startsWith('lantern')) {
         lanterns.push(child);
-        // Bloom layers are not inherited; enable on lantern and all descendants.
+ 
         child.layers.enable(BLOOM_SCENE);
-        const light = new THREE.PointLight(0xffc46a, .5, 10, 1); // adding light to bloomed lantern
+        const light = new THREE.PointLight(0xffc46a, .5, 10, 1);  
         light.position.set(0, -1, 0);
         child.add(light);
         child.traverse((desc) => desc.layers.enable(BLOOM_SCENE));
       }
+
+      if (child.name === 'gloText') {
+        child.castShadow = false;
+  child.receiveShadow = false;
+
+  const mats = Array.isArray(child.material)
+    ? child.material
+    : [child.material];
+
+  mats.forEach((m) => {
+    if (!m) return;
+
+    if (!m.emissive) m.emissive = new THREE.Color();
+
+    
+    m.emissive.set('#56fc98');   
+    m.emissiveIntensity = .3;   
+
+    m.toneMapped = false;       
+    m.needsUpdate = true;
+    gloTextMats.push(m);
+  });
+
+ 
+  child.layers.enable(BLOOM_SCENE);
+  child.traverse((d) => d.layers.enable(BLOOM_SCENE));
+      }
+
+      if (child.name === 'fishingImg' || child.name === 'belongingImg') {
+  child.castShadow = false;
+  child.receiveShadow = false;
+
+  const mats = Array.isArray(child.material) ? child.material : [child.material];
+
+  mats.forEach((m) => {
+    if (!m) return;
+ 
+    if (m.map) m.emissiveMap = m.map;
+
+    if (!m.emissive) m.emissive = new THREE.Color(0xffffff);
+    m.emissive.set(0xffffff);
+    m.emissiveIntensity = .7;    
+
+ 
+    m.toneMapped = false;
+
+    m.needsUpdate = true;
+  }); 
+}
 
       if (child.name.startsWith('pinkTree')) {
         trees.push(child);
-        // Bloom layers are not inherited; enable on lantern and all descendants.
+  
         child.layers.enable(BLOOM_SCENE);
-        const light = new THREE.PointLight('#E77B77FF', 8, 100, 2); // adding light to bloomed lantern
+        const light = new THREE.PointLight('#E77B77FF', 8, 100, 2); 
         light.position.set(0, -1, 0);
         child.add(light);
         child.traverse((desc) => desc.layers.enable(BLOOM_SCENE));
+
+         cloneTree(child, {
+          positions: [
+            new THREE.Vector3(-16, -0.7, 14),
+            new THREE.Vector3(15, -0.7, 46),
+            new THREE.Vector3(-15, -0.7, 46),
+          ],
+
+     
+          leafCol:  ['#10E780', '#51D3E7', '#E7B553'],
+          lightCol: ['#10E780', '#51D3E7', '#E7B553'],
+
+          leafMatNames: ["lightPinkTree"], 
+          randomYaw: true,
+          bloomIntensity: [0.15, 0.12, .13], //green, blue, yellow
+        });
       }
 
-      if (child.name.startsWith('blueTree')) {
-        trees.push(child);
-        // Bloom layers are not inherited; enable on lantern and all descendants.
-        child.layers.enable(BLOOM_SCENE);
-        const light = new THREE.PointLight('#51D3E7FF', 8, 100, 2); // adding light to bloomed lantern
-        light.position.set(0, -1, 0);
-        child.add(light);
-        child.traverse((desc) => desc.layers.enable(BLOOM_SCENE));
-      }
-
-      if (child.name.startsWith('greenTree')) {
-        trees.push(child);
-        // Bloom layers are not inherited; enable on lantern and all descendants.
-        child.layers.enable(BLOOM_SCENE);
-        const light = new THREE.PointLight('#10E780FF', 8, 100, 2); // adding light to bloomed lantern
-        light.position.set(0, -1, 0);
-        child.add(light);
-        child.traverse((desc) => desc.layers.enable(BLOOM_SCENE));
-      }
-
-      if (child.name.startsWith('yellowTree')) {
-        trees.push(child);
-        // Bloom layers are not inherited; enable on lantern and all descendants.
-        child.layers.enable(BLOOM_SCENE);
-        const light = new THREE.PointLight('#E7B553FF', 8, 100, 2); // adding light to bloomed lantern
-        light.position.set(0, -1, 0);
-        child.add(light);
-        child.traverse((desc) => desc.layers.enable(BLOOM_SCENE));
-      }
 
       if (child.isMesh) {
         child.castShadow = true;
@@ -575,6 +681,8 @@ loader.load(
   undefined,
   (error) => console.error(error)
 );
+
+ 
 
 // ------------------- Interaction -------------------
 // ------------------- Resize -------------------
@@ -597,6 +705,9 @@ function handleResize() {
 
 window.addEventListener("resize", handleResize);
 let keyPressed, moveDir;
+
+
+
 // ------------------- Animate -------------------
 function animate() {
   const delta = clock.getDelta();
@@ -604,29 +715,48 @@ function animate() {
   //requestAnimationFrame(animate);
   skyGroup.position.copy(camera.position);
 
+  const t = clock.getElapsedTime();
+  const pulse = gloPulse.base + gloPulse.amp * (0.5 + 0.5 * Math.sin(t * gloPulse.speed));
+
+  for (const m of gloTextMats) {
+    m.emissiveIntensity = pulse;
+  }
+
+  characterLight.position.copy(character.container.position);
+  characterLight.position.y += 1.8;
+
   // movement + smooth facing
   speed = 0.0;
- 
-  
+  moveDir = 0;
+  keyPressed = null;
+    
   if ( keys.w ) { 
-    speed = 0.02;
+    //speed += 0.02;
+    speed += .2;
     moveDir = 1;
     keyPressed = 'w'
-  }else if ( keys.s ){
-    speed = -0.02 ;
+  }
+   if ( keys.s ){
+    speed += -0.02 ;
     moveDir = -1;
     keyPressed = 's'
   }
   if (character.container) {
-    velocity += ( speed - velocity ) * .1;
-    character.container.translateZ( velocity );
+    // --- rotate first ---
+const turnSpeed = 2.5;
+if (keys.a) charYaw += turnSpeed * delta;
+if (keys.d) charYaw -= turnSpeed * delta;
 
-    const turnSpeed = 2.5; // radians/sec (tweak)
-    if (keys.a) charYaw += turnSpeed * delta;
-    if (keys.d) charYaw -= turnSpeed * delta;
+character.container.rotation.set(0, charYaw, 0);
 
-    // apply yaw to character (so model rotates too)
-    character.container.rotation.set(0, charYaw, 0);
+// --- smooth velocity ---
+velocity += (speed - velocity) * 0.1;
+if (Math.abs(velocity) < 0.0001) velocity = 0;
+
+// --- move using world forward direction ---
+forward.set(0, 0, 1).applyQuaternion(character.container.quaternion);
+character.container.position.addScaledVector(forward, velocity);
+
 
 
     // --- smooth rig position to character ---
