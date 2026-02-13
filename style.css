@@ -2,7 +2,7 @@
     box-sizing: border-box;
     padding: 0;
     margin: 0;
-    font-family: "Sixtyfour Convergence", sans-serif;
+    font-family:'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif
 }
 
 .loading {
@@ -36,11 +36,14 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 100%;
-    max-width: 700px;
-    background-color: #ad8672;
+    height: 90%;
+    width: 90%;
+ 
+    background-color: #374ddc;
     border: 2px solid #fff;
     color: #fff;
+    background-position: center;
+    border-radius: 30px;
 }
 
 .modal-wrapper {
@@ -52,8 +55,69 @@
     display: flex;
     flex-direction: row;
     justify-content: space-between;
+    font-size: 20px;
 }
 
 .hidden {
     display: none !important;
+}
+
+.modal-exit-button {
+   background: red;
+  border: none;
+  color: white;
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+
+  display: grid;
+  place-items: center;
+  margin-right: 25px;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+ 
+.modal-header {
+    display: flex;
+    align-items: center;
+    margin: 10px 20px;
+}
+
+.modal-content {
+    margin: 20px;
+}
+
+.modal-project-visit-button {
+    background-color: #b17c11; /* Button background color */
+  color: white;             /* Text color */
+  padding: 10px 20px;       /* Space around the text */
+  text-decoration: none;    /* Remove default underline */
+  border-radius: 5px;       /* Rounded corners */
+  display: inline-block;    /* Allows padding/margin and proper sizing */
+  cursor: pointer;          /* Changes mouse cursor to a hand pointer */
+  border: none;             /* Remove default border */
+  text-align: center; 
+  transition: .3s;
+  margin-bottom: 10px;
+}
+
+.modal-project-visit-button:hover {
+  background-color: #aeac11; /* Change background color on hover */
+}
+ 
+.modal-project-description {
+    font-size: 19px;
+}
+
+.modalImg {
+    margin-top: 30px;
+    width: 90%;
+    
+}
+
+.imgContainer {
+    display: flex;
+    justify-content: center;
 }

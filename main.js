@@ -11,6 +11,7 @@ import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x06070f);
+let intersectSigns = []
 
 const canvas = document.getElementById("experience-canvas");
 
@@ -616,10 +617,14 @@ loader.load(
           child.traverse((d) => d.layers.enable(BLOOM_SCENE));*/
       }
 
+      if (child.name == 'mainSign' || child.name == 'rightSign') {
+        intersectSigns.push(child);
+      }
+
       if (child.name === 'fishingImg' || child.name === 'belongingImg') {
   child.castShadow = false;
   child.receiveShadow = false;
-
+        intersectSigns.push(child);
   const mats = Array.isArray(child.material) ? child.material : [child.material];
 
   mats.forEach((m) => {
@@ -685,6 +690,89 @@ loader.load(
  
 
 // ------------------- Interaction -------------------
+
+// RAYCASTER
+
+const raycaster = new THREE.Raycaster();
+document.addEventListener('mousedown', onMouseDown);
+const modal = document.querySelector('.modal');
+const exitButton = document.querySelector('.modal-exit-button')
+const modalTitle = document.querySelector('.modal-title')
+const modalDesc = document.querySelector('.modal-project-description')
+const modalTarget = document.querySelector('.modal-project-visit-button')
+const modalImg = document.querySelector('.modalImg')
+
+const belongingModal = {
+  title: "Reimagining Belonging Project",
+  desc: "This is a website I created for my job. It features some really cool animations I made with GSAP, CSS, and JS. Designs and ideation for this project were done by Yuchun Zhang.",
+  target: 'https://reimagining-belonging.vercel.app',
+  img: './bg/belongingBG.png'
+}
+
+const fishingModal = {
+  title: "Fishing Game Project",
+  desc: "Starting this summer, I have been working on developing a browser fishing game. I model everything from the world to the fishes all in Blender and am trying to code everything with just Three.js (like this website!) instead of using a game engine like Unity. It adds an extra challenge as I have to make literally everything myself, but I enjoy the process. I have always loved fishing games from Skyblock fishing to Stardew Valley fishing. I'm hoping that my game will fully leverage the 3D space to create a more immersive and fun experience!",
+  target: '',
+  img: './bg/fishingBG.png'
+}
+
+
+function onMouseDown(e) {
+  
+
+
+  //coords gets mouse coords between -1 & 1
+  const rect = renderer.domElement.getBoundingClientRect();
+  const coords = new THREE.Vector2(
+    ((e.clientX - rect.left) / rect.width) * 2 - 1,
+    -((e.clientY - rect.top) / rect.height) * 2 + 1
+  );
+
+  raycaster.setFromCamera(coords, camera);
+
+  const intersections = raycaster.intersectObjects(intersectSigns, true);
+  if (intersections.length == 0) return;
+  const hit = intersections[0].object;
+  const name = hit.name || hit.parent?.name;
+
+  if (intersections.length > 0) {
+    // [0] to select first intersected object in array
+      
+    if (name == 'fishingImg' || name == 'rightSign') {
+      modal.classList.remove('hidden');
+      modalTitle.textContent = fishingModal.title;
+      modalDesc.textContent = fishingModal.desc;
+      modalTarget.classList.add('hidden')
+      modalImg.src = fishingModal.img
+      /*
+      modal.style.backgroundImage = "url('./bg/fishingBG.png')";
+  
+      modal.style.backgroundSize = "cover";
+      modal.style.backgroundRepeat = "no-repeat";*/
+    }
+
+    if (name  == 'belongingImg' || name == 'mainSign') {
+      modal.classList.remove('hidden');
+      modalTitle.textContent = belongingModal.title;
+      modalDesc.textContent = belongingModal.desc;
+      modalTarget.classList.remove('hidden')
+      modalTarget.href = belongingModal.target;
+      modalImg.src = belongingModal.img
+    }
+  }
+}
+
+function closeModal(e) {
+  modal.classList.add('hidden');
+}
+
+exitButton.addEventListener('click', closeModal)
+
+
+
+
+
+
 // ------------------- Resize -------------------
 function handleResize() {
   sizes.width = window.innerWidth;
