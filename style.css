@@ -111,6 +111,15 @@
     font-size: 19px;
 }
 
+.openingText {
+    font-size: 20px;
+    position: absolute;
+    top: 95%;
+    right: 20px;
+    z-index: 100000;
+    color: white;
+}
+
 .modalImg {
     margin-top: 30px;
     width: 90%;

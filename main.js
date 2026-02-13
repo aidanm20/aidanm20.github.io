@@ -657,15 +657,16 @@ loader.load(
             new THREE.Vector3(-16, -0.7, 14),
             new THREE.Vector3(15, -0.7, 46),
             new THREE.Vector3(-15, -0.7, 46),
+            new THREE.Vector3(0, -.7, -40)
           ],
 
      
-          leafCol:  ['#10E780', '#51D3E7', '#E7B553'],
-          lightCol: ['#10E780', '#51D3E7', '#E7B553'],
+          leafCol:  ['#10E780', '#51D3E7', '#efb237', '#7406db'],
+          lightCol: ['#10E780', '#51D3E7', '#efb237', '#7406db'],
 
           leafMatNames: ["lightPinkTree"], 
           randomYaw: true,
-          bloomIntensity: [0.15, 0.12, .13], //green, blue, yellow
+          bloomIntensity: [0.15, 0.12, .13, .6], //green, blue, yellow
         });
       }
 
@@ -797,6 +798,7 @@ let keyPressed, moveDir;
 
 
 // ------------------- Animate -------------------
+const openingText = document.querySelector('.openingText')
 function animate() {
   const delta = clock.getDelta();
   stars.material.uniforms.uTime.value += delta;
@@ -804,10 +806,10 @@ function animate() {
   skyGroup.position.copy(camera.position);
 
   const t = clock.getElapsedTime();
-  const pulse = gloPulse.base + gloPulse.amp * (0.5 + 0.5 * Math.sin(t * gloPulse.speed));
+  //const pulse = gloPulse.base + gloPulse.amp * (0.5 + 0.5 * Math.sin(t * gloPulse.speed));
 
   for (const m of gloTextMats) {
-    m.emissiveIntensity = pulse;
+    m.emissiveIntensity = 1;
   }
 
   characterLight.position.copy(character.container.position);
@@ -823,11 +825,13 @@ function animate() {
     speed += .05;
     moveDir = 1;
     keyPressed = 'w'
+    openingText.classList.add('hidden')
   }
    if ( keys.s ){
     speed += -0.05 ;
     moveDir = -1;
     keyPressed = 's'
+    openingText.classList.add('hidden')
   }
   if (character.container) {
     // --- rotate first ---
