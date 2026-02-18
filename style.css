@@ -39,15 +39,16 @@
     height: 90%;
     width: 90%;
  
-    background-color: #374ddc;
+    background-color: rgb(255, 238, 242);
     border: 2px solid #fff;
-    color: #fff;
+    color: rgb(61, 58, 75);
     background-position: center;
-    border-radius: 30px;
+     border-radius: 5px;
 }
 
 .modal-wrapper {
     padding: 12px;
+    
 }
 
 .modal-header {
@@ -63,9 +64,9 @@
 }
 
 .modal-exit-button {
-   background: red;
+   background: rgb(61, 58, 75);
   border: none;
-  color: white;
+  color: rgb(255, 238, 242);
   border-radius: 50%;
   width: 44px;
   height: 44px;
@@ -90,8 +91,8 @@
 }
 
 .modal-project-visit-button {
-    background-color: #b17c11; /* Button background color */
-  color: white;             /* Text color */
+    background-color: rgb(61, 58, 75); /* Button background color */
+  color: rgb(255, 238, 242);             /* Text color */
   padding: 10px 20px;       /* Space around the text */
   text-decoration: none;    /* Remove default underline */
   border-radius: 5px;       /* Rounded corners */
@@ -101,10 +102,11 @@
   text-align: center; 
   transition: .3s;
   margin-bottom: 10px;
+   
 }
 
 .modal-project-visit-button:hover {
-  background-color: #aeac11; /* Change background color on hover */
+  background-color: #7a7a75; /* Change background color on hover */
 }
  
 .modal-project-description {
