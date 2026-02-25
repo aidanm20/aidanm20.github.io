@@ -190,6 +190,11 @@ const materials = {};
 const visibility = {};
 
 function nonBloomed(obj) {
+  if (obj.userData?.skipBloomPass) {
+    visibility[obj.uuid] = obj.visible;
+    obj.visible = false;
+    return;
+  }
   if (bloomLayer.test(obj.layers)) return;
 
   if (obj.isMesh) {
@@ -715,6 +720,8 @@ loader.load(
  
   inst.material = inst.material.clone();
 
+   
+
   
   inst.material.transparent = false;
   inst.material.alphaTest = 0.5;    
@@ -722,6 +729,12 @@ loader.load(
   inst.material.depthTest = true;
   inst.material.side = THREE.DoubleSide;  
   inst.material.needsUpdate = true;
+  inst.userData.skipBloomPass = true;
+ 
+if (!inst.material.emissive) inst.material.emissive = new THREE.Color(0x000000);
+inst.material.emissive.set(0x1b2a3a);    
+inst.material.emissiveIntensity = 0.2;  
+inst.material.toneMapped = true;        
  
 
   inst.frustumCulled = false;
