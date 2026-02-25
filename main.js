@@ -132,7 +132,7 @@ const moonLight = new THREE.DirectionalLight(0xb0c6ff, 0.6);
 moonLight.position.set(-6, 8, -4);
 scene.add(moonLight);
 
-const characterLight = new THREE.PointLight(0xbcd4ff, 2, 40, 2);
+const characterLight = new THREE.PointLight(0xbcd4ff, 5, 300, 2);
 //characterLight.position.set(0, 2.2, 0);
 characterLight.castShadow = false;
 scene.add(characterLight);
@@ -536,8 +536,9 @@ function cloneTree(baseTree, {
 
   return clones;
 }
-
-
+let mapleMeshes = []
+let bushList = []
+let mapleGroup = null;
 const loader = new GLTFLoader();
 const dLoader = new DRACOLoader();
 dLoader.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.6/");
@@ -546,7 +547,7 @@ loader.setDRACOLoader(dLoader);
 
  
 loader.load(
-  "./portfolio2comp2.glb",
+  "./portfolio5final.glb",
   (gltf) => {
     const root = gltf.scene;
     if (!root) {
@@ -554,11 +555,12 @@ loader.load(
       return;
     }
     console.log(root)
+    /*
     collision = root.getObjectByName('collision_wall');
      
     console.log(collision)
     collision.visible = false;
-
+*/
     root.traverse((child) => {
       if (child.isMesh && child.material) {
         const materials = Array.isArray(child.material) ? child.material : [child.material];
@@ -590,6 +592,19 @@ loader.load(
         child.traverse((desc) => desc.layers.enable(BLOOM_SCENE));
       }
 
+      if (child.name.startsWith('mapleBush')) {
+         const meshes = child.children.filter(c => c.isMesh);
+         console.log(meshes)
+         mapleMeshes = meshes;
+         mapleGroup = child; 
+          mapleMeshes = child.children.filter(c => c.isMesh);
+      }
+
+      if (child.name.startsWith('bushMarker')) {
+        console.log("bush detected")
+        bushList.push(child) 
+      }
+
       if (child.name === 'gloText') {
           child.castShadow = false;
           child.receiveShadow = false;
@@ -617,11 +632,11 @@ loader.load(
           child.traverse((d) => d.layers.enable(BLOOM_SCENE));*/
       }
 
-      if (child.name == 'mainSign' || child.name == 'rightSign') {
+      if (child.name == 'mainSign' || child.name == 'rightSign' ) {
         intersectSigns.push(child);
       }
 
-      if (child.name === 'fishingImg' || child.name === 'belongingImg') {
+      if (child.name === 'fishingImg' || child.name === 'belongingImg' || child.name == 'portSign') {
   child.castShadow = false;
   child.receiveShadow = false;
         intersectSigns.push(child);
@@ -683,12 +698,68 @@ loader.load(
     });
 
     scene.add(root);
+    scene.updateMatrixWorld(true);
+    const baseMatrix = mapleGroup.matrixWorld.clone();
+    if (mapleGroup) mapleGroup.updateMatrixWorld(true);
+    const originalScale = mapleGroup ? mapleGroup.scale.clone() : new THREE.Vector3(1,1,1);
+
+    if (mapleMeshes.length && bushList.length) {
+  const dummy = new THREE.Object3D();
+
+  const instancedParts = mapleMeshes.map(mesh => {
+  const inst = new THREE.InstancedMesh(
+    mesh.geometry,
+    mesh.material,
+    bushList.length
+  );
+ 
+  inst.material = inst.material.clone();
+
+  
+  inst.material.transparent = false;
+  inst.material.alphaTest = 0.5;    
+  inst.material.depthWrite = true;
+  inst.material.depthTest = true;
+  inst.material.side = THREE.DoubleSide;  
+  inst.material.needsUpdate = true;
+ 
+
+  inst.frustumCulled = false;
+  scene.add(inst);
+
+  return inst;
+});
+
+  for (let i = 0; i < bushList.length; i++) {
+    console.log("hi", i);
+
+    const marker = bushList[i];
+
+    dummy.position.setFromMatrixPosition(marker.matrixWorld);
+    dummy.quaternion.setFromRotationMatrix(marker.matrixWorld);
+    //dummy.scale.setFromMatrixScale(marker.matrixWorld);
+    dummy.scale.copy(originalScale); //keep oroginal scale
+    dummy.position.y += .78;
+    dummy.updateMatrix();
+
+    for (const inst of instancedParts) {
+      inst.setMatrixAt(i, dummy.matrix);
+    }
+  }
+
+  instancedParts.forEach(inst => {
+    inst.instanceMatrix.needsUpdate = true;
+  });
+}
+
+
   },
   undefined,
   (error) => console.error(error)
 );
 
  
+
 
 // ------------------- Interaction -------------------
 
@@ -705,17 +776,25 @@ const modalImg = document.querySelector('.modalImg')
 
 const belongingModal = {
   title: "Reimagining Belonging Project",
-  desc: "This is a website I created for my job. It features some really cool animations I made with GSAP, CSS, and JS. Designs and ideation for this project were done by Yuchun Zhang.",
+  desc: "This is an artistic scrolling story website about the housing crisis for Gen Z. Some key features are some cool GSAP animations, custom icons users can create that will appear at the end of the website, and interactive maps that show Gen Z outbound and inbound flows between US states. This project taught me some basic SVG animations with GSAP and CSS, working with Mapbox API, and creating basic backend with MongoDB and Express. This project was done under the 500 Acres Nonprofit and is in collaboration with Yuchun Zhang who created the designs, illustrations, and layout.",
   target: 'https://reimagining-belonging.vercel.app',
   img: './bg/belongingBG.png'
 }
 
 const fishingModal = {
   title: "Fishing Game Project",
-  desc: "Starting this summer, I have been working on developing a browser fishing game. I model everything from the world to the fishes all in Blender and am trying to code everything with just Three.js (like this website!) instead of using a game engine like Unity. It adds an extra challenge as I have to make literally everything myself, but I enjoy the process. I have always loved fishing games from Skyblock fishing to Stardew Valley fishing. I'm hoping that my game will fully leverage the 3D space to create a more immersive and fun experience!",
+  desc: "In my free time, I have been working on a browser fishing game. I love fishing on Hypixel and Stardew Valley so I hope to bring an experience that is as good as these games. I do all the modeling and coding myself, and since it's my first big project in both Threejs and Blender I am learning a lot. My goal with this project is to learn a ton and create a fun game.",
   target: '',
   img: './bg/fishingBG.png'
 }
+
+const portModal = {
+  title: "Portfolio Website",
+  desc: "This is my portfolio website, welcome! I made this website using ThreeJS and Blender. All the modeling and coding was done by me except the character which was done by my girlfriend Amanda. I thought it would be cool to have an interactive portfolio where users can walk around a world displaying my projects. I intend to add more features and upgrades to this website in the future.",
+  target: '',
+  img: './bg/portBG.png'
+}
+
 
 
 function onMouseDown(e) {
@@ -759,6 +838,14 @@ function onMouseDown(e) {
       modalTarget.classList.remove('hidden')
       modalTarget.href = belongingModal.target;
       modalImg.src = belongingModal.img
+    }
+
+    if (name  == 'portSign') {
+      modal.classList.remove('hidden');
+      modalTitle.textContent = portModal.title;
+      modalDesc.textContent = portModal.desc;
+      modalTarget.classList.add('hidden')
+      modalImg.src = portModal.img
     }
   }
 }

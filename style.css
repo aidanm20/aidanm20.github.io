@@ -44,6 +44,7 @@
     color: rgb(61, 58, 75);
     background-position: center;
      border-radius: 5px;
+     overflow: hidden;
 }
 
 .modal-wrapper {
@@ -131,4 +132,5 @@
 .imgContainer {
     display: flex;
     justify-content: center;
+     
 }
