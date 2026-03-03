@@ -14,6 +14,9 @@ scene.background = new THREE.Color(0x06070f);
 let intersectSigns = []
 
 const canvas = document.getElementById("experience-canvas");
+const lowEndDevice =
+  (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ||
+  (navigator.deviceMemory && navigator.deviceMemory <= 4);
 
 const targetQuat = new THREE.Quaternion();
 const currentQuat = new THREE.Quaternion();
@@ -73,8 +76,8 @@ let coronaSafetyDistance = 0.3;
 // ------------------- Renderer -------------------
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setSize(sizes.width, sizes.height);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+renderer.shadowMap.enabled = false;
 renderer.autoClear = false;
 
 const params = {
@@ -145,6 +148,11 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 let bloomComposer;
 let bloomPass;
 let finalComposer;
+let bloomEnabled = !lowEndDevice;
+let avgFrameMs = 16.7;
+const bloomDisableMs = 28;
+const bloomEnableMs = 22;
+const frameMsSmoothing = 0.05;
 
 function initPostprocessing() {
   const bloomRender = new RenderPass(scene, camera);
@@ -326,7 +334,7 @@ const skyDome = new THREE.Mesh(skyGeometry, skyMaterial);
 skyDome.renderOrder = -10;
 skyGroup.add(skyDome);
 
-const stars = createStarField(4000, 360);
+const stars = createStarField(lowEndDevice ? 1800 : 4000, 360);
 skyGroup.add(stars);
 
 const moon = new THREE.Mesh(
@@ -885,7 +893,7 @@ function handleResize() {
   camera.updateProjectionMatrix();
 
   renderer.setSize(sizes.width, sizes.height);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 
   if (bloomComposer) bloomComposer.setSize(sizes.width, sizes.height);
   if (finalComposer) finalComposer.setSize(sizes.width, sizes.height);
@@ -906,16 +914,15 @@ const openingText = document.querySelector('.openingText')
 function animate() {
   const rawDelta = clock.getDelta();
   const delta = Math.min(rawDelta, maxDelta);
+  const frameMs = rawDelta * 1000;
+  avgFrameMs += (frameMs - avgFrameMs) * frameMsSmoothing;
+
+  if (bloomEnabled && avgFrameMs > bloomDisableMs) bloomEnabled = false;
+  else if (!bloomEnabled && avgFrameMs < bloomEnableMs) bloomEnabled = true;
+
   stars.material.uniforms.uTime.value += delta;
   //requestAnimationFrame(animate);
   skyGroup.position.copy(camera.position);
-
-  const t = clock.getElapsedTime();
-  //const pulse = gloPulse.base + gloPulse.amp * (0.5 + 0.5 * Math.sin(t * gloPulse.speed));
-
-  for (const m of gloTextMats) {
-    m.emissiveIntensity = 1;
-  }
 
   characterLight.position.copy(character.container.position);
   characterLight.position.y += 1.8;
@@ -996,13 +1003,16 @@ character.container.position.addScaledVector(forward, velocity * delta);
      
   
 
-  if (bloomComposer && finalComposer) {
+  if (bloomEnabled && bloomComposer && finalComposer) {
     renderer.clear();
     scene.traverse(nonBloomed); // black out non bloom objects
     bloomComposer.render(); // Render bloom scene
     scene.traverse(restoreMaterial); // restore materials from black
 
     finalComposer.render(); // render combined scene
+  } else {
+    renderer.clear();
+    renderer.render(scene, camera);
   }
 
 }
