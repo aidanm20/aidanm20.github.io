@@ -196,9 +196,31 @@ bloomLayer.set(BLOOM_SCENE);
 const darkMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
 const materials = {};
 const visibility = {};
+const darkMaterialCache = {};
+
+function getDarkMaterial(srcMaterial) {
+  if (!srcMaterial) return darkMaterial;
+  if (darkMaterialCache[srcMaterial.uuid]) return darkMaterialCache[srcMaterial.uuid];
+
+  // Preserve alpha cutouts so foliage/cards don't turn into black quads in bloom pass.
+  const maskedDark = new THREE.MeshBasicMaterial({
+    color: 0x000000,
+    map: srcMaterial.map || null,
+    alphaMap: srcMaterial.alphaMap || null,
+    alphaTest: srcMaterial.alphaTest || 0,
+    transparent: !!srcMaterial.transparent,
+    opacity: srcMaterial.opacity ?? 1,
+    side: srcMaterial.side ?? THREE.FrontSide,
+    depthWrite: srcMaterial.depthWrite ?? true,
+    depthTest: srcMaterial.depthTest ?? true,
+  });
+
+  darkMaterialCache[srcMaterial.uuid] = maskedDark;
+  return maskedDark;
+}
 
 function nonBloomed(obj) {
-  if (obj.userData?.skipBloomPass) {
+  if (obj.userData?.skipBloomPass && !obj.isMesh) {
     visibility[obj.uuid] = obj.visible;
     obj.visible = false;
     return;
@@ -207,7 +229,11 @@ function nonBloomed(obj) {
 
   if (obj.isMesh) {
     materials[obj.uuid] = obj.material;
-    obj.material = darkMaterial;
+    if (Array.isArray(obj.material)) {
+      obj.material = obj.material.map((m) => getDarkMaterial(m));
+    } else {
+      obj.material = getDarkMaterial(obj.material);
+    }
     return;
   }
 
@@ -902,7 +928,7 @@ function handleResize() {
 
 window.addEventListener("resize", handleResize);
 let keyPressed, moveDir;
-const moveSpeed = 3.0; // world units per second
+const moveSpeed = 8.0; // world units per second
 const turnSpeed = 2.5; // radians per second
 const velocityResponse = 12.0; // higher = snappier acceleration/deceleration
 const maxDelta = 0.05; // clamp long frames to avoid large movement jumps
