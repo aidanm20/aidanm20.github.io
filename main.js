@@ -894,13 +894,18 @@ function handleResize() {
 
 window.addEventListener("resize", handleResize);
 let keyPressed, moveDir;
+const moveSpeed = 3.0; // world units per second
+const turnSpeed = 2.5; // radians per second
+const velocityResponse = 12.0; // higher = snappier acceleration/deceleration
+const maxDelta = 0.05; // clamp long frames to avoid large movement jumps
 
 
 
 // ------------------- Animate -------------------
 const openingText = document.querySelector('.openingText')
 function animate() {
-  const delta = clock.getDelta();
+  const rawDelta = clock.getDelta();
+  const delta = Math.min(rawDelta, maxDelta);
   stars.material.uniforms.uTime.value += delta;
   //requestAnimationFrame(animate);
   skyGroup.position.copy(camera.position);
@@ -921,33 +926,32 @@ function animate() {
   keyPressed = null;
     
   if ( keys.w ) { 
-    //speed += 0.02;
-    speed += .05;
+    speed += moveSpeed;
     moveDir = 1;
     keyPressed = 'w'
     openingText.classList.add('hidden')
   }
    if ( keys.s ){
-    speed += -0.05 ;
+    speed += -moveSpeed;
     moveDir = -1;
     keyPressed = 's'
     openingText.classList.add('hidden')
   }
   if (character.container) {
     // --- rotate first ---
-const turnSpeed = 2.5;
 if (keys.a) charYaw += turnSpeed * delta;
 if (keys.d) charYaw -= turnSpeed * delta;
 
 character.container.rotation.set(0, charYaw, 0);
 
 // --- smooth velocity ---
-velocity += (speed - velocity) * 0.1;
+const velocityLerp = 1 - Math.exp(-velocityResponse * delta);
+velocity += (speed - velocity) * velocityLerp;
 if (Math.abs(velocity) < 0.0001) velocity = 0;
 
 // --- move using world forward direction ---
 forward.set(0, 0, 1).applyQuaternion(character.container.quaternion);
-character.container.position.addScaledVector(forward, velocity);
+character.container.position.addScaledVector(forward, velocity * delta);
 
 
 
