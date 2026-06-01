@@ -13,7 +13,7 @@
     top: 50%;
     left: 43vw;
     z-index: 10000;
-    
+
 }
 
 .experience{
@@ -30,26 +30,26 @@
     height: 100%;
 }
 
-.modal {    
+.modal {
     z-index: 999;
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    height: 90%;
     width: 90%;
- 
+    max-height: calc(100vh - 60px);
+    overflow-y: auto;
+    padding-bottom: 30px;
     background-color: rgb(255, 238, 242);
     border: 2px solid #fff;
     color: rgb(61, 58, 75);
     background-position: center;
-     border-radius: 5px;
-     overflow: hidden;
+    border-radius: 5px;
 }
 
 .modal-wrapper {
     padding: 12px;
-    
+
 }
 
 .modal-header {
@@ -80,7 +80,7 @@
   line-height: 1;
   cursor: pointer;
 }
- 
+
 .modal-header {
     display: flex;
     align-items: center;
@@ -92,33 +92,33 @@
 }
 
 .modal-project-visit-button {
-    background-color: rgb(61, 58, 75); /* Button background color */
-  color: rgb(255, 238, 242);             /* Text color */
-  padding: 10px 20px;       /* Space around the text */
-  text-decoration: none;    /* Remove default underline */
-  border-radius: 5px;       /* Rounded corners */
-  display: inline-block;    /* Allows padding/margin and proper sizing */
-  cursor: pointer;          /* Changes mouse cursor to a hand pointer */
-  border: none;             /* Remove default border */
-  text-align: center; 
+    background-color: rgb(61, 58, 75);
+  color: rgb(255, 238, 242);
+  padding: 10px 20px;
+  text-decoration: none;
+  border-radius: 5px;
+  display: inline-block;
+  cursor: pointer;
+  border: none;
+  text-align: center;
   transition: .3s;
   margin-bottom: 10px;
-   
+
 }
 
 .modal-project-visit-button:hover {
-  background-color: #7a7a75; /* Change background color on hover */
+  background-color: #7a7a75;
 }
- 
+
 .modal-project-description {
     font-size: 19px;
 }
 
 .openingText {
-    font-size: 40px;
+    font-size: 30px;
     position: absolute;
-    top: 50%;
-    right: 20px;
+    top: 30%;
+    left: 300px;
     z-index: 100000;
     color: white;
 }
@@ -126,11 +126,11 @@
 .modalImg {
     margin-top: 30px;
     width: 90%;
-    
+
 }
 
 .imgContainer {
     display: flex;
     justify-content: center;
-     
+
 }

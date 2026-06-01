@@ -1,4 +1,4 @@
-import * as THREE from "three";
+﻿import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
@@ -59,7 +59,7 @@ let desiredCameraPos = new THREE.Vector3();
 let desiredTargetPos = new THREE.Vector3();
 let velocity = 0.0;
 let speed = 0.0;
-let cameraOffset = new THREE.Vector3(0, 2, -6);
+let cameraOffset = new THREE.Vector3(0, 8, -5);
 let targetOffset = new THREE.Vector3(0, 1.5, 0);
 let worldCameraOffset = new THREE.Vector3();
 const forward = new THREE.Vector3();
@@ -102,7 +102,7 @@ function init() {
 
   goal = new THREE.Object3D;
     follow = new THREE.Object3D;  
-    follow.position.set(0, 2, -6);   // (up, back)
+    follow.position.set(0, 5, -8);   // (up, back)
 scene.add(goal);
 goal.add(follow)
  
@@ -383,6 +383,7 @@ skyGroup.add(moon);
 let collision = null;
 let lanterns = [];
 let trees= [];
+let githubLogo = null;
 
 const charLoader = new FBXLoader();
 charLoader.setPath('./char/');
@@ -406,7 +407,7 @@ box.getSize(size);
 
 const maxAxis = Math.max(size.x, size.y, size.z);
 if (maxAxis > 0) {
-  const targetSize = 3.5;
+  const targetSize = 5;
   const scale = targetSize / maxAxis;
   model.scale.setScalar(scale);
 }
@@ -586,7 +587,7 @@ loader.setDRACOLoader(dLoader);
 
  
 loader.load(
-  "./portfolio5final.glb",
+  "./portfoliowithadditions2.glb",
   (gltf) => {
     const root = gltf.scene;
     if (!root) {
@@ -672,6 +673,15 @@ loader.load(
       }
 
       if (child.name == 'mainSign' || child.name == 'rightSign' ) {
+        intersectSigns.push(child);
+      }
+
+      if (child.name === 'djset' || child.name === 'bookset') {
+        intersectSigns.push(child);
+      }
+
+      if (child.name === 'githubLogo') {
+        githubLogo = child;
         intersectSigns.push(child);
       }
 
@@ -814,6 +824,16 @@ inst.material.toneMapped = true;
 
 const raycaster = new THREE.Raycaster();
 document.addEventListener('mousedown', onMouseDown);
+document.addEventListener('mousemove', (e) => {
+  const rect = renderer.domElement.getBoundingClientRect();
+  const coords = new THREE.Vector2(
+    ((e.clientX - rect.left) / rect.width) * 2 - 1,
+    -((e.clientY - rect.top) / rect.height) * 2 + 1
+  );
+  raycaster.setFromCamera(coords, camera);
+  const hits = raycaster.intersectObjects(intersectSigns, true);
+  renderer.domElement.style.cursor = hits.length > 0 ? 'pointer' : 'default';
+});
 const modal = document.querySelector('.modal');
 const exitButton = document.querySelector('.modal-exit-button')
 const modalTitle = document.querySelector('.modal-title')
@@ -837,11 +857,26 @@ const fishingModal = {
 
 const portModal = {
   title: "Portfolio Website",
-  desc: "This is my portfolio website, welcome! I made this website using ThreeJS and Blender. All the modeling and coding was done by me except the character which was done by my girlfriend Amanda. I thought it would be cool to have an interactive portfolio where users can walk around a world displaying my projects. I intend to add more features and upgrades to this website in the future.",
+  desc: "This is my portfolio website, welcome! I made this website using ThreeJS and Blender. All the modeling and coding was done by me except the character which was done by my girlfriend Amanda. I thought it would be cool to have an interactive portfolio where users can walk around a world displaying my projects. I know it isn't mobile friendly and maybe there's some performance issues with slower computers but it's a cool project and I just had to do it. As I improve my skills and do more projects, I will regularly update this site as well alongside it so stay tuned!",
   target: '',
   img: './bg/portBG.png'
 }
 
+const djModal = {
+  title: "PRJKTSPRSPD",
+  desc: "This is my music player web app. You can import your favorite songs and play them. What separates my app from others is that you can control the song's pitch, speed, and reverb easily with sliders and use the built in pomodoro clock to be productive. I built this site as I love to listen to sped up and pitched up music as well as slowed down and pitched down music. I use this music player while I work and while I drive frequently! It also features a pastel vaporwave aesthetic with a 3D audio visualizer background. This is the project I've spent the most effort on aside from the fishing game so please check it out!",
+  target: 'https://musicapp-lovat-five.vercel.app/',
+  img: './bg/djBG.png'
+}
+
+
+
+const bookModal = {
+  title: "Aidan Nikki",
+  desc: "This is my blog where I write weekly updates on my developer journey. I mainly write on my personal projects. I hope that by writing down my processes and explaining what I learn with each project, I will further solidify my knowledge. This was also the first project where I focused on SEO, so hopefully in a month or two this site will be discovered by people organically.",
+  target: 'https://www.aidannikki.com',
+  img: './bg/nikki.png'
+}
 
 
 function onMouseDown(e) {
@@ -860,12 +895,21 @@ function onMouseDown(e) {
   const intersections = raycaster.intersectObjects(intersectSigns, true);
   if (intersections.length == 0) return;
   const hit = intersections[0].object;
-  const name = hit.name || hit.parent?.name;
+  let resolvedName = '';
+  let cur = hit;
+  while (cur) {
+    const n = cur.name || '';
+    if (n.startsWith('djset')) { resolvedName = 'djset'; break; }
+    if (n.startsWith('bookset')) { resolvedName = 'bookset'; break; }
+    if (n.startsWith('githubLogo') || n === 'githubLogo') { resolvedName = 'githubLogo'; break; }
+    if (n === 'mainSign' || n === 'rightSign' || n === 'fishingImg' || n === 'belongingImg' || n === 'portSign') { resolvedName = n; break; }
+    cur = cur.parent;
+  }
 
   if (intersections.length > 0) {
     // [0] to select first intersected object in array
       
-    if (name == 'fishingImg' || name == 'rightSign') {
+    if (resolvedName == 'fishingImg' || resolvedName == 'rightSign') {
       modal.classList.remove('hidden');
       modalTitle.textContent = fishingModal.title;
       modalDesc.textContent = fishingModal.desc;
@@ -878,7 +922,7 @@ function onMouseDown(e) {
       modal.style.backgroundRepeat = "no-repeat";*/
     }
 
-    if (name  == 'belongingImg' || name == 'mainSign') {
+    if (resolvedName == 'belongingImg' || resolvedName == 'mainSign') {
       modal.classList.remove('hidden');
       modalTitle.textContent = belongingModal.title;
       modalDesc.textContent = belongingModal.desc;
@@ -887,12 +931,34 @@ function onMouseDown(e) {
       modalImg.src = belongingModal.img
     }
 
-    if (name  == 'portSign') {
+    if (resolvedName == 'portSign') {
       modal.classList.remove('hidden');
       modalTitle.textContent = portModal.title;
       modalDesc.textContent = portModal.desc;
       modalTarget.classList.add('hidden')
       modalImg.src = portModal.img
+    }
+
+    if (resolvedName === 'djset') {
+      modal.classList.remove('hidden');
+      modalTitle.textContent = djModal.title;
+      modalDesc.textContent = djModal.desc;
+      modalTarget.classList.remove('hidden');
+      modalTarget.href = djModal.target;
+      modalImg.src = djModal.img;
+    }
+
+    if (resolvedName === 'bookset') {
+      modal.classList.remove('hidden');
+      modalTitle.textContent = bookModal.title;
+      modalDesc.textContent = bookModal.desc;
+      modalTarget.classList.remove('hidden');
+      modalTarget.href = bookModal.target;
+      modalImg.src = bookModal.img;
+    }
+
+    if (resolvedName === 'githubLogo') {
+      window.open('https://github.com/aidanm20', '_blank');
     }
   }
 }
@@ -947,6 +1013,7 @@ function animate() {
   else if (!bloomEnabled && avgFrameMs < bloomEnableMs) bloomEnabled = true;
 
   stars.material.uniforms.uTime.value += delta;
+  if (githubLogo) githubLogo.rotation.z += delta * 1.5;
   //requestAnimationFrame(animate);
   skyGroup.position.copy(camera.position);
 
