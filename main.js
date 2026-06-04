@@ -84,7 +84,7 @@ const params = {
   threshold: 0,
   strength: 1,
   radius: 0.5,
-  exposure: 1.5,
+  exposure: 1.1,
   Object_11: true,
   Object_12: false,
   Object_13: true,
@@ -125,21 +125,19 @@ goal.add(follow)
  
 
 // ------------------- Basic Lights -------------------
-const ambientLight = new THREE.AmbientLight(0x0a0d1a, 0.5);
+const ambientLight = new THREE.AmbientLight(0x1a2040, 1);
 scene.add(ambientLight);
-
-const hemiLight = new THREE.HemisphereLight(0x0a1a3a, 0x02030a, 0.6);
+const hemiLight = new THREE.HemisphereLight(0x223366, 0x0a0f1a, 0.6);
 scene.add(hemiLight);
 
-const moonLight = new THREE.DirectionalLight(0xb0c6ff, 0.6);
-moonLight.position.set(-6, 8, -4);
+ 
+ 
+const moonLight = new THREE.DirectionalLight(0xb0c6ff, 1.8);
+moonLight.position.set(-60, 80, -40);
 scene.add(moonLight);
-
-const characterLight = new THREE.PointLight(0xbcd4ff, 5, 300, 2);
-//characterLight.position.set(0, 2.2, 0);
+const characterLight = new THREE.PointLight(0xbcd4ff, 5, 300, 5);
 characterLight.castShadow = false;
 scene.add(characterLight);
-
 // collision detection
 
 // Bloom
@@ -390,7 +388,7 @@ charLoader.setPath('./char/');
 charLoader.load('portCharEx.fbx', (fbx) => {
  
   const model = fbx;
-character.instance = model;
+character.instance = model; 
 character.container.add(model);
 //character.container.add(new THREE.AxesHelper(1));
 
@@ -426,9 +424,9 @@ model.position.z -= center.z;
 model.updateMatrixWorld(true);
 box = new THREE.Box3().setFromObject(model);
 model.position.y -= box.min.y;      // bottom to y=0
-model.position.y += 0.25;           // your small lift (optional)
-model.position.x -= 1.7
-model.position.z += .3
+model.position.y += 0.4;           // your small lift (optional)
+model.position.x -= 2.5
+model.position.z += .8
 
 // Recompute matrices after reposition
 model.updateMatrixWorld(true);
@@ -626,7 +624,7 @@ loader.load(
         lanterns.push(child);
  
         child.layers.enable(BLOOM_SCENE);
-        const light = new THREE.PointLight(0xffc46a, .5, 10, 1);  
+        const light = new THREE.PointLight(0xffc46a, 2.5, 15, 1);  
         light.position.set(0, -1, 0);
         child.add(light);
         child.traverse((desc) => desc.layers.enable(BLOOM_SCENE));
@@ -736,8 +734,8 @@ loader.load(
 
 
       if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
+        child.castShadow = false;
+        child.receiveShadow = false;
       }
 
        if (child.name === "collision_wall") {
@@ -931,7 +929,7 @@ function onMouseDown(e) {
       modalImg.src = belongingModal.img
     }
 
-    if (resolvedName == 'portSign') {
+    if (name  == 'portSign') {
       modal.classList.remove('hidden');
       modalTitle.textContent = portModal.title;
       modalDesc.textContent = portModal.desc;
@@ -1011,6 +1009,10 @@ function animate() {
 
   if (bloomEnabled && avgFrameMs > bloomDisableMs) bloomEnabled = false;
   else if (!bloomEnabled && avgFrameMs < bloomEnableMs) bloomEnabled = true;
+  
+
+  renderer.shadowMap.enabled = false;
+renderer.shadowMap.autoUpdate = false;
 
   stars.material.uniforms.uTime.value += delta;
   if (githubLogo) githubLogo.rotation.z += delta * 1.5;
@@ -1018,7 +1020,8 @@ function animate() {
   skyGroup.position.copy(camera.position);
 
   characterLight.position.copy(character.container.position);
-  characterLight.position.y += 1.8;
+  characterLight.position.y += 7;
+ 
 
   // movement + smooth facing
   speed = 0.0;
