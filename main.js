@@ -159,7 +159,7 @@ function initPostprocessing() {
 
   bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
-    1.5,
+    1.0,
     0.02,
     0.08
   );
@@ -577,6 +577,8 @@ function cloneTree(baseTree, {
 let mapleMeshes = []
 let bushList = []
 let mapleGroup = null;
+let envList = []
+let bambooZone = null;
 const loader = new GLTFLoader();
 const dLoader = new DRACOLoader();
 dLoader.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.6/");
@@ -585,7 +587,7 @@ loader.setDRACOLoader(dLoader);
 
  
 loader.load(
-  "./portfoliowithadditions2.glb",
+  "./portfolio5withback.glb",
   (gltf) => {
     const root = gltf.scene;
     if (!root) {
@@ -631,16 +633,22 @@ loader.load(
       }
 
       if (child.name.startsWith('mapleBush')) {
-         const meshes = child.children.filter(c => c.isMesh);
-         console.log(meshes)
-         mapleMeshes = meshes;
-         mapleGroup = child; 
-          mapleMeshes = child.children.filter(c => c.isMesh);
+        mapleMeshes = child.children.filter(c => c.isMesh);
+        mapleGroup = child;
       }
 
       if (child.name.startsWith('bushMarker')) {
-        console.log("bush detected")
-        bushList.push(child) 
+        bushList.push(child);
+      }
+
+      if (child.name == ('bambooZone')) {
+          bambooZone = child
+          child.visible = false
+      }
+
+      if (child.name == 'bamboo1' || child.name == 'bamboo2') {
+        envList.push(child);
+        child.visible = false;
       }
 
       if (child.name === 'gloText') {
@@ -746,66 +754,167 @@ loader.load(
 
     scene.add(root);
     scene.updateMatrixWorld(true);
-    const baseMatrix = mapleGroup.matrixWorld.clone();
     if (mapleGroup) mapleGroup.updateMatrixWorld(true);
-    const originalScale = mapleGroup ? mapleGroup.scale.clone() : new THREE.Vector3(1,1,1);
+    const originalScale = mapleGroup ? mapleGroup.scale.clone() : new THREE.Vector3(1, 1, 1);
 
     if (mapleMeshes.length && bushList.length) {
-  const dummy = new THREE.Object3D();
+      const dummy = new THREE.Object3D();
+      const instancedParts = mapleMeshes.map(mesh => {
+        const inst = new THREE.InstancedMesh(mesh.geometry, mesh.material.clone(), bushList.length);
+        inst.material.transparent = false;
+        inst.material.alphaTest = 0.5;
+        inst.material.depthWrite = true;
+        inst.material.depthTest = true;
+        inst.material.side = THREE.DoubleSide;
+        inst.material.needsUpdate = true;
+        inst.userData.skipBloomPass = true;
+        if (!inst.material.emissive) inst.material.emissive = new THREE.Color(0x000000);
+        inst.material.emissive.set(0x1b2a3a);
+        inst.material.emissiveIntensity = 0.2;
+        inst.material.toneMapped = true;
+        inst.frustumCulled = false;
+        scene.add(inst);
+        return inst;
+      });
 
-  const instancedParts = mapleMeshes.map(mesh => {
-  const inst = new THREE.InstancedMesh(
-    mesh.geometry,
-    mesh.material,
-    bushList.length
-  );
- 
-  inst.material = inst.material.clone();
-
-   
-
-  
-  inst.material.transparent = false;
-  inst.material.alphaTest = 0.5;    
-  inst.material.depthWrite = true;
-  inst.material.depthTest = true;
-  inst.material.side = THREE.DoubleSide;  
-  inst.material.needsUpdate = true;
-  inst.userData.skipBloomPass = true;
- 
-if (!inst.material.emissive) inst.material.emissive = new THREE.Color(0x000000);
-inst.material.emissive.set(0x1b2a3a);    
-inst.material.emissiveIntensity = 0.2;  
-inst.material.toneMapped = true;        
- 
-
-  inst.frustumCulled = false;
-  scene.add(inst);
-
-  return inst;
-});
-
-  for (let i = 0; i < bushList.length; i++) {
-    console.log("hi", i);
-
-    const marker = bushList[i];
-
-    dummy.position.setFromMatrixPosition(marker.matrixWorld);
-    dummy.quaternion.setFromRotationMatrix(marker.matrixWorld);
-    //dummy.scale.setFromMatrixScale(marker.matrixWorld);
-    dummy.scale.copy(originalScale); //keep oroginal scale
-    dummy.position.y += .78;
-    dummy.updateMatrix();
-
-    for (const inst of instancedParts) {
-      inst.setMatrixAt(i, dummy.matrix);
+      for (let i = 0; i < bushList.length; i++) {
+        const marker = bushList[i];
+        dummy.position.setFromMatrixPosition(marker.matrixWorld);
+        dummy.quaternion.setFromRotationMatrix(marker.matrixWorld);
+        dummy.scale.copy(originalScale);
+        dummy.position.y += .78;
+        dummy.updateMatrix();
+        for (const inst of instancedParts) inst.setMatrixAt(i, dummy.matrix);
+      }
+      instancedParts.forEach(inst => { inst.instanceMatrix.needsUpdate = true; });
     }
-  }
 
-  instancedParts.forEach(inst => {
-    inst.instanceMatrix.needsUpdate = true;
-  });
-}
+    if (bambooZone && envList.length === 2) {
+        bambooZone.updateMatrixWorld(true);
+
+        // Build triangle pool from zone mesh so samples land only on the actual ring geometry
+        const posAttr = bambooZone.geometry.attributes.position;
+        const indexAttr = bambooZone.geometry.index;
+        const triCount = indexAttr ? indexAttr.count / 3 : posAttr.count / 3;
+        const triPool = [];
+        let totalArea = 0;
+        const _pA = new THREE.Vector3(), _pB = new THREE.Vector3(), _pC = new THREE.Vector3();
+        const _tri = new THREE.Triangle();
+
+        for (let i = 0; i < triCount; i++) {
+          const iA = indexAttr ? indexAttr.getX(i * 3)     : i * 3;
+          const iB = indexAttr ? indexAttr.getX(i * 3 + 1) : i * 3 + 1;
+          const iC = indexAttr ? indexAttr.getX(i * 3 + 2) : i * 3 + 2;
+          _pA.fromBufferAttribute(posAttr, iA).applyMatrix4(bambooZone.matrixWorld);
+          _pB.fromBufferAttribute(posAttr, iB).applyMatrix4(bambooZone.matrixWorld);
+          _pC.fromBufferAttribute(posAttr, iC).applyMatrix4(bambooZone.matrixWorld);
+          _tri.set(_pA, _pB, _pC);
+          totalArea += _tri.getArea();
+          triPool.push({ a: _pA.clone(), b: _pB.clone(), c: _pC.clone(), cumArea: totalArea });
+        }
+
+        function sampleZonePoint() {
+          const r = Math.random() * totalArea;
+          let lo = 0, hi = triPool.length - 1;
+          while (lo < hi) {
+            const mid = (lo + hi) >> 1;
+            if (triPool[mid].cumArea < r) lo = mid + 1; else hi = mid;
+          }
+          const { a, b, c } = triPool[lo];
+          let r1 = Math.random(), r2 = Math.random();
+          if (r1 + r2 > 1) { r1 = 1 - r1; r2 = 1 - r2; }
+          return new THREE.Vector3()
+            .copy(a)
+            .addScaledVector(new THREE.Vector3().subVectors(b, a), r1)
+            .addScaledVector(new THREE.Vector3().subVectors(c, a), r2);
+        }
+
+        // Place 4 soft teal-green fill lights around the ring
+        const zoneCenter = new THREE.Vector3();
+        bambooZone.getWorldPosition(zoneCenter);
+        bambooZone.geometry.computeBoundingBox();
+        const zoneBbox = bambooZone.geometry.boundingBox.clone().applyMatrix4(bambooZone.matrixWorld);
+        const ringRadius = Math.max(
+          zoneBbox.max.x - zoneBbox.min.x,
+          zoneBbox.max.z - zoneBbox.min.z
+        ) * 0.35;
+
+        [[1,0],[0,1],[-1,0],[0,-1]].forEach(([dx, dz]) => {
+          const light = new THREE.PointLight(0x7ab89a, 2.2, 38, 1.5);
+          light.position.set(
+            zoneCenter.x + dx * ringRadius,
+            zoneCenter.y + 5,
+            zoneCenter.z + dz * ringRadius
+          );
+          scene.add(light);
+        });
+
+        const COUNT_PER_TYPE = 100;
+        const dummy = new THREE.Object3D();
+
+        for (const envItem of envList) {
+          const meshes = envItem.isMesh
+            ? [envItem]
+            : envItem.children.filter(c => c.isMesh);
+
+          if (!meshes.length) continue;
+
+          // Compute how far below the item's world origin its geometry bottom sits,
+          // accounting for all child transforms (not just geometry local space)
+          envItem.updateMatrixWorld(true);
+          const itemWorldPos = new THREE.Vector3();
+          envItem.getWorldPosition(itemWorldPos);
+          const worldBbox = new THREE.Box3();
+          envItem.traverse(c => {
+            if (c.isMesh && c.geometry) {
+              c.updateMatrixWorld(true);
+              c.geometry.computeBoundingBox();
+              worldBbox.union(c.geometry.boundingBox.clone().applyMatrix4(c.matrixWorld));
+            }
+          });
+          const belowOrigin = itemWorldPos.y - worldBbox.min.y;
+
+          const instancedParts = meshes.map(mesh => {
+            const inst = new THREE.InstancedMesh(
+              mesh.geometry,
+              mesh.material.clone(),
+              COUNT_PER_TYPE
+            );
+            inst.material.transparent = false;
+            inst.material.alphaTest = 0.5;
+            inst.material.depthWrite = true;
+            inst.material.depthTest = true;
+            inst.material.side = THREE.DoubleSide;
+            inst.material.needsUpdate = true;
+            inst.userData.skipBloomPass = true;
+            if (!inst.material.emissive) inst.material.emissive = new THREE.Color(0x000000);
+            inst.material.emissive.set(0x0d2218);
+            inst.material.emissiveIntensity = 0.28;
+            inst.material.toneMapped = true;
+            inst.frustumCulled = false;
+            scene.add(inst);
+            return inst;
+          });
+
+          for (let i = 0; i < COUNT_PER_TYPE; i++) {
+            const pt = sampleZonePoint();
+            dummy.position.set(pt.x, pt.y + belowOrigin, pt.z);
+            dummy.rotation.set(0, Math.random() * Math.PI * 2, 0);
+            dummy.scale.copy(envItem.scale);
+            dummy.updateMatrix();
+
+            for (const inst of instancedParts) {
+              inst.setMatrixAt(i, dummy.matrix);
+            }
+          }
+
+          instancedParts.forEach(inst => {
+            inst.instanceMatrix.needsUpdate = true;
+          });
+        }
+      }
+
+
 
 
   },
@@ -890,6 +999,8 @@ function onMouseDown(e) {
 
   raycaster.setFromCamera(coords, camera);
 
+  if (!modal.classList.contains('hidden')) return;
+
   const intersections = raycaster.intersectObjects(intersectSigns, true);
   if (intersections.length == 0) return;
   const hit = intersections[0].object;
@@ -905,8 +1016,7 @@ function onMouseDown(e) {
   }
 
   if (intersections.length > 0) {
-    // [0] to select first intersected object in array
-      
+
     if (resolvedName == 'fishingImg' || resolvedName == 'rightSign') {
       modal.classList.remove('hidden');
       modalTitle.textContent = fishingModal.title;
@@ -929,7 +1039,7 @@ function onMouseDown(e) {
       modalImg.src = belongingModal.img
     }
 
-    if (name  == 'portSign') {
+    if (resolvedName == 'portSign') {
       modal.classList.remove('hidden');
       modalTitle.textContent = portModal.title;
       modalDesc.textContent = portModal.desc;
@@ -966,6 +1076,11 @@ function closeModal(e) {
 }
 
 exitButton.addEventListener('click', closeModal)
+
+// ------------------ Environment -------------
+
+
+
 
 
 

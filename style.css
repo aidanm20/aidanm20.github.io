@@ -43,7 +43,7 @@
     padding-bottom: 30px;
     background-color: #0e1120;
     border: 1px solid #E77B77;
-    color: #e8e0f0;
+    color: #E77B77;
     background-position: center;
     border-radius: 8px;
     box-shadow: 0 0 32px rgba(231, 123, 119, 0.15);
@@ -119,9 +119,10 @@
 }
 
 .modal-project-description {
+    padding-top: 10px;
     font-size: 17px;
     line-height: 1.6;
-    color: #b8b0c8;
+    color: #e6daff;
 }
 
 .openingText {
